@@ -1,6 +1,7 @@
 package me.ash.reader.ui.page.adaptive
 
 import android.net.Uri
+import android.text.Html
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,8 +11,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Date
 import javax.inject.Inject
 import kotlin.collections.any
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +45,8 @@ import me.ash.reader.domain.service.SyncWorker
 import me.ash.reader.infrastructure.android.AndroidImageDownloader
 import me.ash.reader.infrastructure.android.TextToSpeechManager
 import me.ash.reader.infrastructure.di.ApplicationScope
+import me.ash.reader.infrastructure.net.AiChunk
+import me.ash.reader.infrastructure.net.AiSummaryClient
 import me.ash.reader.infrastructure.di.IODispatcher
 import me.ash.reader.infrastructure.preference.PullToLoadNextFeedPreference
 import me.ash.reader.infrastructure.preference.SettingsProvider
@@ -49,6 +54,9 @@ import me.ash.reader.infrastructure.rss.ReaderCacheHelper
 import timber.log.Timber
 
 private const val TAG = "FlowViewModel"
+
+// shortcut: long articles are truncated to the first characters, upgrade to chunking when needed
+private const val MAX_SUMMARY_INPUT_CHARS = 8_000
 
 @OptIn(FlowPreview::class)
 @HiltViewModel()
@@ -66,6 +74,7 @@ constructor(
     val textToSpeechManager: TextToSpeechManager,
     private val imageDownloader: AndroidImageDownloader,
     private val articleListUseCase: ArticlePagingListUseCase,
+    private val aiSummaryClient: AiSummaryClient,
     workManager: WorkManager,
 ) : ViewModel() {
 
@@ -272,6 +281,7 @@ constructor(
         get() = readingUiState.value.articleWithFeed?.feed
 
     fun initData(articleId: String, listIndex: Int? = null) {
+        closeAiSummary()
         viewModelScope.launch {
             val snapshotList = articleListUseCase.itemSnapshotList
 
@@ -319,6 +329,85 @@ constructor(
     fun clearReadingData() {
         _readingUiState.update { ReadingUiState() }
         _readerState.update { ReaderState() }
+        closeAiSummary()
+    }
+
+    private val _aiSummaryState = MutableStateFlow<AiSummaryState>(AiSummaryState.Idle)
+    val aiSummaryState: StateFlow<AiSummaryState> = _aiSummaryState.asStateFlow()
+
+    private var aiSummaryJob: Job? = null
+
+    private val _aiSummaryVisible = MutableStateFlow(false)
+    val aiSummaryVisible: StateFlow<Boolean> = _aiSummaryVisible.asStateFlow()
+
+    /** Top bar button: reveal a cached summary, start a new one, or stop the running one. */
+    fun toggleAiSummary() {
+        when (_aiSummaryState.value) {
+            is AiSummaryState.Done -> _aiSummaryVisible.update { !it }
+            is AiSummaryState.Streaming, AiSummaryState.Thinking -> closeAiSummary()
+            AiSummaryState.Idle, is AiSummaryState.Error -> generateAiSummary()
+        }
+    }
+
+    fun generateAiSummary() {
+        val html = readerStateStateFlow.value.content.text
+        if (html.isNullOrBlank()) return
+        val settings = settingsProvider.settings
+        val article =
+            Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY)
+                .toString()
+                .take(MAX_SUMMARY_INPUT_CHARS)
+        aiSummaryJob?.cancel()
+        _aiSummaryVisible.update { true }
+        // With thinking on we already asked for "high" effort, so show the thinking title
+        // from the tap instead of a blank "AI Summary" while the first token is in flight.
+        _aiSummaryState.update {
+            if (settings.aiThinking.value) AiSummaryState.Thinking else AiSummaryState.Streaming("")
+        }
+        aiSummaryJob =
+            viewModelScope.launch(ioDispatcher) {
+                val summary = StringBuilder()
+                try {
+                    aiSummaryClient
+                        .streamSummary(
+                            baseUrl = settings.aiBaseUrl,
+                            apiKey = settings.aiApiKey,
+                            model = settings.aiModel,
+                            prompt = settings.aiPrompt,
+                            article = article,
+                            thinkingEnabled = settings.aiThinking.value,
+                        )
+                        .collect { chunk ->
+                            when (chunk) {
+                                is AiChunk.Reasoning ->
+                                    // keep already-streamed answer text; only show thinking before it starts
+                                    _aiSummaryState.update {
+                                        if (it is AiSummaryState.Streaming) it else AiSummaryState.Thinking
+                                    }
+                                is AiChunk.Content -> {
+                                    summary.append(chunk.text)
+                                    _aiSummaryState.update { AiSummaryState.Streaming(summary.toString()) }
+                                }
+                            }
+                        }
+                    _aiSummaryState.update { AiSummaryState.Done(summary.toString()) }
+                } catch (th: Throwable) {
+                    if (th is CancellationException) throw th
+                    _aiSummaryState.update { AiSummaryState.Error(th.message ?: th.toString()) }
+                }
+            }
+    }
+
+    /** Drop the card and its cached result, so the next tap asks the model again. */
+    fun closeAiSummary() {
+        aiSummaryJob?.cancel()
+        aiSummaryJob = null
+        _aiSummaryVisible.update { false }
+        _aiSummaryState.update { AiSummaryState.Idle }
+    }
+
+    override fun onCleared() {
+        aiSummaryJob?.cancel()
     }
 
     suspend fun ReaderState.renderContent(articleWithFeed: ArticleWithFeed): ReaderState {
@@ -487,4 +576,12 @@ data class ReaderState(
     data class Error(val message: String) : ContentState
 
     data object Loading : ContentState
+}
+
+sealed interface AiSummaryState {
+    data object Idle : AiSummaryState
+    data object Thinking : AiSummaryState
+    data class Streaming(val text: String) : AiSummaryState
+    data class Done(val text: String) : AiSummaryState
+    data class Error(val message: String) : AiSummaryState
 }

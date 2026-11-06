@@ -44,12 +44,14 @@ import kotlinx.coroutines.launch
 import me.ash.reader.R
 import me.ash.reader.infrastructure.android.TextToSpeechManager
 import me.ash.reader.infrastructure.preference.LocalPullToSwitchArticle
+import me.ash.reader.infrastructure.preference.LocalSettings
 import me.ash.reader.infrastructure.preference.LocalReadingAutoHideToolbar
 import me.ash.reader.infrastructure.preference.LocalReadingBoldCharacters
 import me.ash.reader.infrastructure.preference.LocalReadingTextLineHeight
 import me.ash.reader.infrastructure.preference.not
 import me.ash.reader.ui.ext.collectAsStateValue
 import me.ash.reader.ui.ext.showToast
+import me.ash.reader.ui.page.adaptive.AiSummaryState
 import me.ash.reader.ui.page.adaptive.ArticleListReaderViewModel
 import me.ash.reader.ui.page.adaptive.NavigationAction
 import me.ash.reader.ui.page.adaptive.ReaderState
@@ -73,6 +75,11 @@ fun ReadingPage(
     val isPullToSwitchArticleEnabled = LocalPullToSwitchArticle.current.value
     val readingUiState = viewModel.readingUiState.collectAsStateValue()
     val readerState = viewModel.readerStateStateFlow.collectAsStateValue()
+    // Keep the raw state while collapsing: demoting it to Idle here would blank the card
+    // content one frame before the exit animation, causing the two-stage collapse.
+    val aiSummaryState = viewModel.aiSummaryState.collectAsStateValue()
+    val aiSummaryVisible = viewModel.aiSummaryVisible.collectAsStateValue()
+    val settings = LocalSettings.current
     val boldCharacters = LocalReadingBoldCharacters.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -106,6 +113,17 @@ fun ReadingPage(
                     TopBar(
                         isShow = isShowToolBar,
                         isScrolled = showTopDivider,
+                        onSummaryClick = {
+                            val isAiConfigured =
+                                settings.aiBaseUrl.isNotBlank() &&
+                                    settings.aiApiKey.isNotBlank() &&
+                                    settings.aiModel.isNotBlank()
+                            if (!isAiConfigured) {
+                                context.showToast(context.getString(R.string.ai_not_configured))
+                            } else {
+                                viewModel.toggleAiSummary()
+                            }
+                        },
                         title = readerState.title,
                         link = readerState.link,
                         onClick = { bringToTop = true },
@@ -260,6 +278,8 @@ fun ReadingPage(
                                             link = link,
                                             publishedDate = publishedDate,
                                             isLoading = content is ReaderState.Loading,
+                                            aiSummaryState = aiSummaryState,
+                                            aiSummaryVisible = aiSummaryVisible,
                                             scrollState = scrollState,
                                             listState = listState,
                                             onImageClick = { imgUrl, altText ->

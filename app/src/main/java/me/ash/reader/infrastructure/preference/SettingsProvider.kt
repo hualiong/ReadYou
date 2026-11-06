@@ -138,6 +138,13 @@ class SettingsProvider @Inject constructor(
             LocalOpenLinkSpecificBrowser provides settings.openLinkSpecificBrowser,
             LocalSharedContent provides settings.sharedContent,
 
+            // AI
+            LocalAiBaseUrl provides settings.aiBaseUrl,
+            LocalAiApiKey provides settings.aiApiKey,
+            LocalAiModel provides settings.aiModel,
+        LocalAiPrompt provides settings.aiPrompt,
+            LocalAiThinking provides settings.aiThinking,
+
             // Languages
             LocalLanguages provides settings.languages,
         ) {

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,9 +22,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import me.ash.reader.R
+import me.ash.reader.infrastructure.preference.AiApiKeyPreference
+import me.ash.reader.infrastructure.preference.AiBaseUrlPreference
+import me.ash.reader.infrastructure.preference.AiModelPreference
+import me.ash.reader.infrastructure.preference.AiPromptPreference
 import me.ash.reader.infrastructure.preference.InitialFilterPreference
 import me.ash.reader.infrastructure.preference.InitialPagePreference
 import me.ash.reader.infrastructure.preference.LocalArticleListSwipeEndAction
+import me.ash.reader.infrastructure.preference.LocalAiApiKey
+import me.ash.reader.infrastructure.preference.LocalAiBaseUrl
+import me.ash.reader.infrastructure.preference.LocalAiModel
+import me.ash.reader.infrastructure.preference.LocalAiPrompt
+import me.ash.reader.infrastructure.preference.LocalAiThinking
 import me.ash.reader.infrastructure.preference.LocalArticleListSwipeStartAction
 import me.ash.reader.infrastructure.preference.LocalHideEmptyGroups
 import me.ash.reader.infrastructure.preference.LocalInitialFilter
@@ -48,6 +58,7 @@ import me.ash.reader.ui.component.base.RYSwitch
 import me.ash.reader.ui.component.base.RadioDialog
 import me.ash.reader.ui.component.base.RadioDialogOption
 import me.ash.reader.ui.component.base.Subtitle
+import me.ash.reader.ui.component.base.TextFieldDialog
 import me.ash.reader.ui.ext.getBrowserAppList
 import me.ash.reader.ui.page.settings.SettingItem
 import me.ash.reader.ui.theme.palette.onLight
@@ -68,6 +79,11 @@ fun InteractionPage(
     val openLink = LocalOpenLink.current
     val openLinkSpecificBrowser = LocalOpenLinkSpecificBrowser.current
     val sharedContent = LocalSharedContent.current
+    val aiBaseUrl = LocalAiBaseUrl.current
+    val aiApiKey = LocalAiApiKey.current
+    val aiModel = LocalAiModel.current
+    val aiPrompt = LocalAiPrompt.current
+    val aiThinking = LocalAiThinking.current
     val settings = LocalSettings.current
     val pullToSwitchFeed = settings.pullToSwitchFeed
 
@@ -84,6 +100,11 @@ fun InteractionPage(
     var sharedContentDialogVisible by remember { mutableStateOf(false) }
     var showSortUnreadArticlesDialog by remember { mutableStateOf(false) }
     var showPullToLoadDialog by remember { mutableStateOf(false) }
+    var aiBaseUrlDialogVisible by remember { mutableStateOf(false) }
+    var aiApiKeyDialogVisible by remember { mutableStateOf(false) }
+    var aiModelDialogVisible by remember { mutableStateOf(false) }
+    var aiPromptDialogVisible by remember { mutableStateOf(false) }
+    var aiDialogValue by remember { mutableStateOf("") }
 
     RYScaffold(
         containerColor = MaterialTheme.colorScheme.surface onLight MaterialTheme.colorScheme.inverseOnSurface,
@@ -236,6 +257,57 @@ fun InteractionPage(
                         },
                     ) {}
                     Spacer(modifier = Modifier.height(24.dp))
+
+                    Subtitle(
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                        text = stringResource(R.string.ai),
+                    )
+                    SettingItem(
+                        title = stringResource(R.string.ai_base_url),
+                        desc = aiBaseUrl.ifBlank { stringResource(R.string.none) },
+                        onClick = {
+                            aiDialogValue = aiBaseUrl
+                            aiBaseUrlDialogVisible = true
+                        },
+                    ) {}
+                    SettingItem(
+                        title = stringResource(R.string.ai_api_key),
+                        desc =
+                            if (aiApiKey.isBlank()) stringResource(R.string.none)
+                            else "•••••" + aiApiKey.takeLast(4),
+                        onClick = {
+                            aiDialogValue = aiApiKey
+                            aiApiKeyDialogVisible = true
+                        },
+                    ) {}
+                    SettingItem(
+                        title = stringResource(R.string.ai_model),
+                        desc = aiModel.ifBlank { stringResource(R.string.none) },
+                        onClick = {
+                            aiDialogValue = aiModel
+                            aiModelDialogVisible = true
+                        },
+                    ) {}
+                    SettingItem(
+                        title = stringResource(R.string.ai_prompt),
+                        desc =
+                            if (aiPrompt.length <= 50) aiPrompt
+                            else aiPrompt.take(50).trimEnd() + "…",
+                        onClick = {
+                            aiDialogValue = aiPrompt
+                            aiPromptDialogVisible = true
+                        },
+                    ) {}
+                    SettingItem(
+                        title = stringResource(R.string.ai_thinking),
+                        desc = stringResource(R.string.ai_thinking_desc),
+                        onClick = { aiThinking.toggle(context, scope) },
+                    ) {
+                        RYSwitch(activated = aiThinking.value) {
+                            aiThinking.toggle(context, scope)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
                 item {
                     Spacer(modifier = Modifier.height(24.dp))
@@ -387,5 +459,63 @@ fun InteractionPage(
         onDismissRequest = {
             showPullToLoadDialog = false
         }
+    )
+
+    TextFieldDialog(
+        visible = aiBaseUrlDialogVisible,
+        title = stringResource(R.string.ai_base_url),
+        icon = Icons.Outlined.AutoAwesome,
+        value = aiDialogValue,
+        placeholder = "https://api.openai.com/v1",
+        onValueChange = { aiDialogValue = it },
+        onDismissRequest = { aiBaseUrlDialogVisible = false },
+        onConfirm = {
+            AiBaseUrlPreference.put(context, scope, it.trim())
+            aiBaseUrlDialogVisible = false
+        },
+    )
+
+    TextFieldDialog(
+        visible = aiApiKeyDialogVisible,
+        title = stringResource(R.string.ai_api_key),
+        icon = Icons.Outlined.AutoAwesome,
+        value = aiDialogValue,
+        isPassword = true,
+        placeholder = "sk-...",
+        onValueChange = { aiDialogValue = it },
+        onDismissRequest = { aiApiKeyDialogVisible = false },
+        onConfirm = {
+            AiApiKeyPreference.put(context, scope, it.trim())
+            aiApiKeyDialogVisible = false
+        },
+    )
+
+    TextFieldDialog(
+        visible = aiModelDialogVisible,
+        title = stringResource(R.string.ai_model),
+        icon = Icons.Outlined.AutoAwesome,
+        value = aiDialogValue,
+        placeholder = "gpt-4o-mini",
+        onValueChange = { aiDialogValue = it },
+        onDismissRequest = { aiModelDialogVisible = false },
+        onConfirm = {
+            AiModelPreference.put(context, scope, it.trim())
+            aiModelDialogVisible = false
+        },
+    )
+
+    TextFieldDialog(
+        visible = aiPromptDialogVisible,
+        title = stringResource(R.string.ai_prompt),
+        icon = Icons.Outlined.AutoAwesome,
+        value = aiDialogValue,
+        singleLine = false,
+        placeholder = AiPromptPreference.default,
+        onValueChange = { aiDialogValue = it },
+        onDismissRequest = { aiPromptDialogVisible = false },
+        onConfirm = {
+            AiPromptPreference.put(context, scope, it.trim())
+            aiPromptDialogVisible = false
+        },
     )
 }

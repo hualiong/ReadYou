@@ -350,4 +350,14 @@
     <string name="parse_full_content_desc">从网页获取完整内容</string>
     <string name="enable">启用</string>
     <string name="disable">停用</string>
+    <string name="ai">AI</string>
+    <string name="ai_summary">AI Summary</string>
+    <string name="ai_not_configured">请先在「使用偏好」中配置 AI 接口</string>
+    <string name="ai_base_url">接口地址</string>
+    <string name="ai_api_key">接口密钥</string>
+    <string name="ai_model">模型</string>
+    <string name="ai_prompt">提示词</string>
+    <string name="ai_thinking">深度思考</string>
+    <string name="ai_thinking_desc">开启后模型先推理再作答，推理期间卡片显示“正在思考…”</string>
+    <string name="ai_summary_thinking">正在思考…</string>
 </resources>

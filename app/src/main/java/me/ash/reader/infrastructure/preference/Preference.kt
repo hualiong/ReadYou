@@ -87,6 +87,13 @@ fun Preferences.toSettings(): Settings {
         openLinkSpecificBrowser = OpenLinkSpecificBrowserPreference.fromPreferences(this),
         sharedContent = SharedContentPreference.fromPreferences(this),
 
+        // AI
+        aiBaseUrl = AiBaseUrlPreference.fromPreferences(this),
+        aiApiKey = AiApiKeyPreference.fromPreferences(this),
+        aiModel = AiModelPreference.fromPreferences(this),
+        aiPrompt = AiPromptPreference.fromPreferences(this),
+        aiThinking = AiThinkingPreference.fromPreference(this),
+
         // Languages
         languages = LanguagesPreference.fromPreferences(this),
     )

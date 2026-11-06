@@ -198,6 +198,13 @@ sealed interface PreferencesKey {
         const val openLinkAppSpecificBrowser = "openLinkAppSpecificBrowser"
         const val sharedContent = "sharedContent"
 
+        // AI
+        const val aiBaseUrl = "aiBaseUrl"
+        const val aiApiKey = "aiApiKey"
+        const val aiModel = "aiModel"
+        const val aiPrompt = "aiPrompt"
+        const val aiThinking = "aiThinking"
+
         // Languages
         const val languages = "languages"
 
@@ -273,6 +280,12 @@ sealed interface PreferencesKey {
                 IntKey(openLink),
                 StringKey(openLinkAppSpecificBrowser),
                 IntKey(sharedContent),
+                // AI
+                StringKey(aiBaseUrl),
+                StringKey(aiApiKey),
+                StringKey(aiModel),
+            StringKey(aiPrompt),
+                BooleanKey(aiThinking),
                 // Languages
                 IntKey(languages),
             )
@@ -359,6 +372,13 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
         const val openLink = "openLink"
         const val openLinkAppSpecificBrowser = "openLinkAppSpecificBrowser"
         const val sharedContent = "sharedContent"
+
+        // AI
+        const val aiBaseUrl = "aiBaseUrl"
+        const val aiApiKey = "aiApiKey"
+        const val aiModel = "aiModel"
+        const val aiPrompt = "aiPrompt"
+        const val aiThinking = "aiThinking"
 
         // Languages
         const val languages = "languages"
@@ -511,6 +531,12 @@ data class DataStoreKey<T>(val key: Preferences.Key<T>, val type: Class<T>) {
                         String::class.java,
                     ),
                 sharedContent to DataStoreKey(intPreferencesKey(sharedContent), Int::class.java),
+                // AI
+                aiBaseUrl to DataStoreKey(stringPreferencesKey(aiBaseUrl), String::class.java),
+                aiApiKey to DataStoreKey(stringPreferencesKey(aiApiKey), String::class.java),
+                aiModel to DataStoreKey(stringPreferencesKey(aiModel), String::class.java),
+        aiPrompt to DataStoreKey(stringPreferencesKey(aiPrompt), String::class.java),
+                aiThinking to DataStoreKey(booleanPreferencesKey(aiThinking), Boolean::class.java),
                 // Languages
                 languages to DataStoreKey(intPreferencesKey(languages), Int::class.java),
             )
@@ -522,6 +548,8 @@ val ignorePreferencesOnExportAndImport =
         DataStoreKey.currentAccountId,
         DataStoreKey.currentAccountType,
         DataStoreKey.isFirstLaunch,
+        // The key would leak through the exported settings file otherwise
+        DataStoreKey.aiApiKey,
     )
 
 suspend fun Context.fromDataStoreToJSONString(): String {

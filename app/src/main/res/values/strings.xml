@@ -386,4 +386,14 @@
     <string name="parse_full_content_desc">Fetch full articles from webpages</string>
     <string name="enable">Enable</string>
     <string name="disable">Disable</string>
+    <string name="ai">AI</string>
+    <string name="ai_summary">AI Summary</string>
+    <string name="ai_not_configured">Set up the AI endpoint in Settings first</string>
+    <string name="ai_base_url">API endpoint</string>
+    <string name="ai_api_key">API key</string>
+    <string name="ai_model">Model</string>
+    <string name="ai_prompt">System prompt</string>
+    <string name="ai_thinking">Deep thinking</string>
+    <string name="ai_thinking_desc">Let the model reason first; the card shows "Thinking…" while it does</string>
+    <string name="ai_summary_thinking">Thinking…</string>
 </resources>

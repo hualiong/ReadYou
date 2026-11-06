@@ -80,6 +80,13 @@ data class Settings(
     val openLinkSpecificBrowser: OpenLinkSpecificBrowserPreference = OpenLinkSpecificBrowserPreference.default,
     val sharedContent: SharedContentPreference = SharedContentPreference.default,
 
+    // AI
+    val aiBaseUrl: String = AiBaseUrlPreference.default,
+    val aiApiKey: String = AiApiKeyPreference.default,
+    val aiModel: String = AiModelPreference.default,
+    val aiPrompt: String = AiPromptPreference.default,
+    val aiThinking: AiThinkingPreference = AiThinkingPreference.default,
+
     // Languages
     val languages: LanguagesPreference = LanguagesPreference.default,
 )
